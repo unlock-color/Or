@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Unlock &amp; Color · Reports</title>
+<style>
+:root{--bg:#eef1fb;--surface:#fff;--ink:#10162b;--muted:#5b6485;--line:#d9def0;--accent:#3d5afe;--bad:#c62828;--ok:#2e7d32;--warn:#b26a00;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1426;--surface:#182038;--ink:#eef1ff;--muted:#9aa4c8;--line:#2a3558;--accent:#7d93ff;--bad:#ff6b6b;--ok:#6ddc7a;--warn:#ffb74d;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:900px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:8px 0 2px}
+.sub{color:var(--muted);margin:0 0 14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:10px 0}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.tile b{display:block;font-size:1.6rem;font-variant-numeric:tabular-nums}.tile span{color:var(--muted);font-size:.8rem}
+.live{color:var(--ok);font-size:.8rem;font-weight:700}
+button,a.btn{font:inherit;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:7px 12px;cursor:pointer;text-decoration:none;display:inline-block}
+button.p{background:var(--accent);color:#fff;border-color:var(--accent)}button.d{color:var(--bad)}button:disabled{opacity:.5}
+button.on{border-color:var(--accent);color:var(--accent)}
+input{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);min-width:0}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.bar input{flex:1 1 200px}
+.hbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rep{margin:10px 0}.rep.done{opacity:.7}
+.rh{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.kind{display:inline-block;border-radius:999px;padding:2px 10px;font-size:.75rem;font-weight:800;border:1px solid currentColor}
+.k-message{color:var(--accent)}.k-account{color:var(--warn)}
+.m{color:var(--muted);font-size:.85rem}
+.who{display:flex;gap:10px;align-items:center;margin:6px 0}
+.av{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;font-weight:800;overflow:hidden;flex:none}.av img{width:100%;height:100%;object-fit:cover}
+.id{font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
+.tag{display:inline-block;border-radius:999px;padding:2px 9px;font-size:.75rem;font-weight:800;border:1px solid currentColor}
+.t-ok{color:var(--ok)}.t-warn{color:var(--warn)}.t-ban{color:var(--bad)}
+.quote{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0 4px;white-space:pre-wrap;word-break:break-word}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.acts button{padding:5px 10px;font-size:.85rem}
+.hide{display:none!important}.err{color:var(--bad);font-weight:600}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+</style></head><body><main>
+<div id="login" class="card hide">
+  <h1>Reports</h1>
+  <p class="sub" id="lmsg">Owner only. Sign in with the Google account that owns the game.</p>
+  <button class="p" id="gbtn" type="button">Sign in with Google</button>
+  <p class="err" id="lerr" role="alert"></p>
+</div>
+
+<div id="app" class="hide">
+  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+    <div><h1>🚩 Reports</h1><p class="sub"><span class="live">● Live</span> · <span id="who"></span></p></div>
+    <div class="hbar"><a class="btn" href="admin.html">Players</a><button id="out" type="button">Sign out</button></div>
+  </div>
+  <div class="tiles" id="tiles"></div>
+  <div class="bar" role="group" aria-label="Filter">
+    <button type="button" data-st="open" class="on">Open</button>
+    <button type="button" data-st="done">Done</button>
+    <button type="button" data-st="all">All</button>
+    <span style="width:8px"></span>
+    <button type="button" data-kd="all" class="on">Everything</button>
+    <button type="button" data-kd="message">Messages</button>
+    <button type="button" data-kd="account">Accounts</button>
+  </div>
+  <div class="bar"><input id="q" type="search" placeholder="Search by ID, name or message" aria-label="Search"><span class="m" id="cnt"></span></div>
+  <p class="err" id="err" role="alert"></p>
+  <div id="list"></div>
+</div></main>
+
+<script>
+/* Same Firebase config as index.html / admin.html. Needs the "reports" rules from reports-rules.txt. */
+var FIREBASE_CONFIG = { apiKey: "AIzaSyBgl58_5eAd9ni8jilaZFcPAz6iu9BO21c", authDomain: "unlock-color.firebaseapp.com", projectId: "unlock-color", storageBucket: "unlock-color.firebasestorage.app", messagingSenderId: "362464520368", appId: "1:362464520368:web:85a1a5fef2e2ef5bcaf375" };
+var OWNER_EMAIL = "hletaj9@gmail.com";
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+var $ = function (i) { return document.getElementById(i); };
+var FOREVER = Date.UTC(9999, 0, 1);
+firebase.initializeApp(FIREBASE_CONFIG);
+var auth = firebase.auth(), db = firebase.firestore();
+var reports = [], users = {}, unsubs = [], tick = 0, fSt = "open", fKd = "all";
+function ms(t) { return t && t.toMillis ? t.toMillis() : (t || 0); }
+function pad(n) { return String(n).padStart(4, "0"); }
+function ago(t) { if (!t) return "just now"; var s = Math.max(0, (Date.now() - t) / 1000); if (s < 60) return "just now"; if (s < 3600) return Math.floor(s / 60) + " min ago"; if (s < 86400) return Math.floor(s / 3600) + " h ago"; return Math.floor(s / 86400) + " d ago"; }
+function banned(u) { return u && u.status === "banned" && (!u.banned || !u.banned.until || u.banned.until > Date.now()); }
+function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+function fail(e) { $("err").textContent = (e && e.message) || String(e); }
+
+$("gbtn").onclick = function () { $("lerr").textContent = ""; auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function (e) { $("lerr").textContent = e.message; }); };
+$("out").onclick = function () { auth.signOut(); };
+function stop() { unsubs.forEach(function (f) { f(); }); unsubs = []; clearInterval(tick); }
+
+auth.onAuthStateChanged(function (u) {
+    stop(); $("app").classList.add("hide");
+    if (!u) { $("lmsg").textContent = "Owner only. Sign in with the Google account that owns the game."; $("login").classList.remove("hide"); return; }
+    var owner = !!u.email && u.email.toLowerCase() === OWNER_EMAIL.toLowerCase() && u.emailVerified;
+    if (!owner) { /* staff are NOT allowed here: reports are for the owner only */
+        $("lmsg").textContent = "This page is only for the owner. You are signed in as " + u.email + ".";
+        $("login").classList.remove("hide"); return;
+    }
+    $("login").classList.add("hide"); $("app").classList.remove("hide"); $("who").textContent = u.email + " · owner";
+    start();
+});
+
+function start() {
+    unsubs.push(db.collection("reports").orderBy("created", "desc").limit(500).onSnapshot(function (s) {
+        reports = s.docs.map(function (d) { var x = d.data({ serverTimestamps: "estimate" }); x._id = d.id; return x; }); $("err").textContent = ""; draw();
+    }, fail));
+    unsubs.push(db.collection("users").onSnapshot(function (s) {
+        users = {}; s.docs.forEach(function (d) { var x = d.data(); x._uid = d.id; users[d.id] = x; }); draw();
+    }, fail));
+    tick = setInterval(draw, 30000);
+}
+
+function avatar(u, fallback) {
+    var a = el("span", "av");
+    if (u && u.pic && /^data:image\//.test(u.pic)) { var im = document.createElement("img"); im.src = u.pic; im.alt = ""; a.appendChild(im); }
+    else a.textContent = ((u && u.name) || fallback || "?").trim().charAt(0).toUpperCase();
+    return a;
+}
+function label(uid, fbName, fbNum) {
+    var u = users[uid], n = u ? u.num : fbNum, nm = u ? u.name : fbName;
+    return (n ? "#" + pad(n) + " " : "") + (nm || "(unknown player)");
+}
+function statusTag(u) {
+    if (!u) return el("span", "tag t-ban", "account deleted");
+    var b = banned(u), t = el("span", "tag " + (b ? "t-ban" : u.warn ? "t-warn" : "t-ok"));
+    t.textContent = b ? ((!u.banned || !u.banned.until || u.banned.until >= FOREVER) ? "banned (permanent)" : "banned until " + new Date(u.banned.until).toLocaleString()) : u.warn ? "warned" : "OK";
+    return t;
+}
+function setStatus(r, status) { return db.doc("reports/" + r._id).update({ status: status }).catch(fail); }
+function isOwnerUser(u) { return u && (u.email || "").toLowerCase() === OWNER_EMAIL.toLowerCase(); }
+
+function card(r, openCount) {
+    var c = el("div", "card rep" + (r.status === "done" ? " done" : "")), h = el("div", "rh");
+    h.appendChild(el("span", "kind k-" + r.kind, r.kind === "message" ? "Message" : "Account"));
+    h.appendChild(el("span", "m", ago(ms(r.created)) + " · " + (ms(r.created) ? new Date(ms(r.created)).toLocaleString() : "")));
+    if (r.where) h.appendChild(el("span", "m", "· in " + (r.where === "dm" ? "a private chat" : r.where === "group" ? "a group chat" : "the friends list")));
+    if (r.status === "done") h.appendChild(el("span", "tag t-ok", "done"));
+    c.appendChild(h);
+
+    var tu = users[r.target], w = el("div", "who"); w.appendChild(avatar(tu, r.targetName));
+    var info = el("div"), l1 = el("div"); l1.style.fontWeight = "700";
+    var idn = el("span", "id", tu ? "#" + pad(tu.num) : (r.targetNum ? "#" + pad(r.targetNum) : "")); l1.appendChild(idn); l1.appendChild(document.createTextNode(" " + (tu ? tu.name : r.targetName || "(unknown player)") + " "));
+    l1.appendChild(statusTag(tu)); info.appendChild(l1);
+    var l2 = el("div", "m", "Reported player" + (tu && tu.email ? " · " + tu.email : "") + (openCount > 1 ? " · " + openCount + " open reports about this player" : "")); info.appendChild(l2);
+    w.appendChild(info); c.appendChild(w);
+
+    if (r.kind === "message") {
+        c.appendChild(el("div", "quote", r.text || "(empty)"));
+        c.appendChild(el("div", "m", "Text as sent by the reporter. Chats are end-to-end encrypted, so it can’t be checked against the real chat."));
+    }
+    c.appendChild(el("div", "m", "Reported by " + label(r.by, r.byName, r.byNum)));
+
+    var a = el("div", "acts");
+    function btn(t, f, cls) { var b = el("button", cls || "", t); b.type = "button"; b.onclick = function () { b.disabled = true; Promise.resolve().then(f).then(null, fail).then(function () { b.disabled = false; }); }; a.appendChild(b); }
+    if (tu && !isOwnerUser(tu)) {
+        var ref = db.collection("users").doc(r.target);
+        btn("Warn", function () {
+            var t = prompt("Warning text for " + label(r.target) + ":", "Please be kind and follow the rules.");
+            if (!t) return;
+            return ref.update({ warn: { text: t, id: Date.now(), by: auth.currentUser.email } }).then(function () { return setStatus(r, "done"); });
+        });
+        if (banned(tu)) btn("Unban", function () { return ref.update({ status: "ok", banned: firebase.firestore.FieldValue.delete() }); });
+        else btn("Ban", function () {
+            var why = prompt("Reason for banning " + label(r.target) + ":"); if (why === null) return;
+            var h = prompt("Hours (0 = permanent):", "0"); if (h === null) return; h = parseFloat(h) || 0;
+            return ref.update({ status: "banned", banned: { reason: why, until: h > 0 ? Date.now() + h * 3600000 : FOREVER, at: Date.now(), by: auth.currentUser.email } }).then(function () { return setStatus(r, "done"); });
+        }, "d");
+    }
+    if (r.status === "done") btn("Reopen", function () { return setStatus(r, "open"); });
+    else btn("Mark done", function () { return setStatus(r, "done"); }, "p");
+    btn("Delete", function () { if (confirm("Delete this report?")) return db.doc("reports/" + r._id).delete(); }, "d");
+    c.appendChild(a);
+    return c;
+}
+
+function tile(n, l) { return '<div class="tile"><b>' + n + "</b><span>" + l + "</span></div>"; }
+function draw() {
+    if ($("app").classList.contains("hide")) return;
+    var open = reports.filter(function (r) { return r.status !== "done"; });
+    var perTarget = {}; open.forEach(function (r) { perTarget[r.target] = (perTarget[r.target] || 0) + 1; });
+    $("tiles").innerHTML = tile(open.length, "Open") + tile(reports.length - open.length, "Done") + tile(reports.filter(function (r) { return r.kind === "message"; }).length, "Message reports") + tile(reports.filter(function (r) { return r.kind === "account"; }).length, "Account reports");
+    var q = $("q").value.trim().toLowerCase().replace(/^#/, ""), B = $("list"), n = 0;
+    B.textContent = "";
+    reports.forEach(function (r) {
+        if (fSt === "open" && r.status === "done") return;
+        if (fSt === "done" && r.status !== "done") return;
+        if (fKd !== "all" && r.kind !== fKd) return;
+        if (q) {
+            var hay = (label(r.target, r.targetName, r.targetNum) + " " + label(r.by, r.byName, r.byNum) + " " + (r.text || "") + " " + pad(r.targetNum || 0)).toLowerCase();
+            if (hay.indexOf(q) < 0) return;
+        }
+        n++; B.appendChild(card(r, perTarget[r.target] || 0));
+    });
+    if (!n) B.appendChild(el("p", "empty", reports.length ? "Nothing matches these filters." : "No reports yet. 🎉"));
+    $("cnt").textContent = n + " shown";
+}
+Array.prototype.forEach.call(document.querySelectorAll("[data-st]"), function (b) { b.onclick = function () { fSt = b.getAttribute("data-st"); Array.prototype.forEach.call(document.querySelectorAll("[data-st]"), function (x) { x.classList.toggle("on", x === b); }); draw(); }; });
+Array.prototype.forEach.call(document.querySelectorAll("[data-kd]"), function (b) { b.onclick = function () { fKd = b.getAttribute("data-kd"); Array.prototype.forEach.call(document.querySelectorAll("[data-kd]"), function (x) { x.classList.toggle("on", x === b); }); draw(); }; });
+$("q").oninput = draw;
+})();
+</script></body></html>
